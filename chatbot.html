@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tutorial Chatbot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background:  linear-gradient(135deg, #4a6fa5 0%, #3a5a8a 100%);
+    }
+    .chat-container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 80vh;
+      
+    }
+    .chat-header {
+      padding: 16px;
+      background: #4a90e2;
+      color: white;
+      font-size: 1.25rem;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-box {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background-image: url('https://d2vrvpw63099lz.cloudfront.net/conversational-ai-platform/header-conversational-ai-chatbot-speech-bubble.png');
+      background-size: cover;         /* Cover entire screen */
+      background-repeat: no-repeat;   /* Don't repeat the image */
+       background-position: center;    
+    }
+    .message {
+      margin: 10px 0;
+      display: flex;
+    }
+    .bot { justify-content: flex-start; }
+    .user { justify-content: flex-end; }
+    .bubble {
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 20px;
+    }
+    .bot .bubble { background: #e1f5fe; color: #333; }
+    .user .bubble { background: #4a90e2; color: white; }
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+    .chat-input input[type="text"] {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      font-size: 1rem;
+      outline: none;
+    }
+    .chat-input button {
+      padding: 0 20px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .logout-btn {
+      background: #e74c3c;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="chat-header">
+      Tutorial Chatbot
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="chat-box" id="chatBox"></div>
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Ask a question or upload an image..." />
+      <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="sendImage()" />
+      <button onclick="document.getElementById('imageInput').click()">📷</button>
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-auth-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCVvaqJeppdqoL8lVM3rOdYlnqzZ3LmVsI",
+      authDomain: "chatbot-fdb19.firebaseapp.com",
+      projectId: "chatbot-fdb19",
+      storageBucket: "chatbot-fdb19.appspot.com",
+      messagingSenderId: "499513063427",
+      appId: "1:499513063427:web:b971d14bdb128fcc11f636",
+      measurementId: "G-9V7PKYR92K"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    auth.onAuthStateChanged(user => {
+      if (!user) window.location.href = "index.html";
+    });
+
+    function logout() {
+      auth.signOut();
+    }
+
+    const chatBox = document.getElementById('chatBox');
+
+    function addMessage(text, sender) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      msg.innerHTML = `<div class="bubble">${text}</div>`;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('userInput');
+      const userMessage = input.value.trim();
+      if (!userMessage) return;
+      addMessage(userMessage, 'user');
+      input.value = '';
+
+      const res = await fetch("https://panda-y8kr.onrender.com/gemini-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      const data = await res.json();
+      addMessage(data.reply || "Sorry, couldn't understand.", "bot");
+    }
+
+    async function sendImage() {
+      const fileInput = document.getElementById("imageInput");
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      addMessage("📷 [Image uploaded]", "user");
+
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        const base64Image = event.target.result.split(',')[1];
+        const res = await fetch("https://panda-y8kr.onrender.com/gemini-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Image }),
+        });
+        const data = await res.json();
+        addMessage(data.reply || "Couldn't understand the image.", "bot");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    document.getElementById('userInput').addEventListener("keypress", function (e) {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+</html>
